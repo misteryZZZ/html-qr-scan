@@ -51,20 +51,46 @@
 
     categories.forEach(cat => scannedData[cat] = []);
 
-    const updateScannedList = () => {
+
+
+    const updateScannedList = (tab) => {
       const list = document.getElementById("scanned-list");
       list.innerHTML = "";
       scannedData[currentTab].forEach((item, index) => {
-        const li = document.createElement("li");
-        li.textContent = `${index + 1}. ${item}`;
-        list.appendChild(li);
+        var stringData = item.split("#");
+        const objectData = {
+          "id" : stringData[0],
+          "firstname" : stringData[3],
+          "lastname" : stringData[4],
+          "company_name" : stringData[5],
+          "email" : stringData[6],
+          "phone_number" : stringData[7],
+          "sheet_name" : "Workshop_A"
+        };
+
+        const url = "https://script.google.com/macros/s/AKfycbzTkHSTEInWb8kbd4_DWxlMj7yLNzzWNTI1boJxM6LenFzqheW7Tg1L-ER2PPFdQShk/exec"; // Replace this with your Google Apps Script Web App URL
+
+        fetch(url, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(objectData)
+        }).then(() => {
+          showStatus("✅ Data sent to Google Sheets!");
+        }).catch(() => {
+          showStatus("❌ Failed to send data.", "text-red-600");
+        });
+
+        const listItem = document.createElement("li");
+        listItem.textContent = `Name: ${objectData.firstname}, tab: ${objectData.sheet_name}`;
+        list.appendChild(listItem);
       });
     };
 
     const switchTab = (tab) => {
       currentTab = tab;
       document.getElementById("current-category").textContent = tab;
-      updateScannedList();
+      updateScannedList(tab);
     };
 
     const showStatus = (msg, color = "text-green-600") => {
@@ -105,7 +131,7 @@
         qrData: scannedData[currentTab]
       };
 
-      const url = "YOUR_GOOGLE_SCRIPT_URL_HERE"; // Replace this with your Google Apps Script Web App URL
+      const url = "https://script.google.com/macros/s/AKfycbzTkHSTEInWb8kbd4_DWxlMj7yLNzzWNTI1boJxM6LenFzqheW7Tg1L-ER2PPFdQShk/exec"; // Replace this with your Google Apps Script Web App URL
 
       fetch(url, {
         method: 'POST',
