@@ -47,7 +47,7 @@
     let currentTab = "Workshop A";
 
     const qrReader = new Html5Qrcode("qr-reader");
-    const cameraConfig = { fps: 30, qrbox: 300, videoConstraints: { facingMode: "environment" } };
+    const cameraConfig = { fps: 20, qrbox: 300, videoConstraints: { facingMode: "environment" } };
 
     categories.forEach(cat => scannedData[cat] = []);
 
