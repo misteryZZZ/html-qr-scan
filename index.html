@@ -2,78 +2,145 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>QR Code Scanner</title>
+  <title>Event QR Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <style>
-    body { text-align: center; font-family: sans-serif; padding: 2rem; }
-    #qr-reader { width: 300px; margin: auto; }
-    #result { margin-top: 1rem; font-size: 1.2rem; }
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center">
 
-  <h1>QR Code Scanner</h1>
-  <div id="qr-reader"></div>
-  <div id="result"></div>
-  <button id="sendBtn" style="display:none; margin-top: 1rem;">Send to Google Sheet</button>
+  <header class="w-full bg-blue-600 text-white text-center p-4 shadow">
+    <h1 class="text-2xl font-bold">QR Code Scanner App</h1>
+  </header>
+
+  <div class="flex flex-wrap justify-center gap-2 p-4">
+    <button class="tab-btn bg-white px-4 py-2 rounded shadow" data-tab="Workshop A">Workshop A</button>
+    <button class="tab-btn bg-white px-4 py-2 rounded shadow" data-tab="Workshop B">Workshop B</button>
+    <button class="tab-btn bg-white px-4 py-2 rounded shadow" data-tab="Lunch">Lunch</button>
+    <button class="tab-btn bg-white px-4 py-2 rounded shadow" data-tab="Exhibitor">Exhibitor</button>
+    <button class="tab-btn bg-white px-4 py-2 rounded shadow" data-tab="Hall">Hall</button>
+    <button class="tab-btn bg-white px-4 py-2 rounded shadow" data-tab="One to One Meeting">One to One Meeting</button>
+  </div>
+
+  <div id="scanner-container" class="w-full max-w-lg bg-white p-4 rounded shadow">
+    <div id="qr-reader" class="w-full"></div>
+  </div>
+
+  <div class="w-full max-w-lg mt-4 p-4 bg-white rounded shadow">
+    <h2 class="font-bold text-lg mb-2">Scanned Data - <span id="current-category">Workshop A</span></h2>
+    <ul id="scanned-list" class="text-sm max-h-40 overflow-y-auto space-y-1"></ul>
+
+    <div class="mt-4 flex flex-wrap justify-between gap-2">
+      <button id="sendBtn" class="bg-green-600 text-white px-4 py-2 rounded shadow">Send to Google Sheet</button>
+      <button id="exportBtn" class="bg-blue-600 text-white px-4 py-2 rounded shadow">Export CSV</button>
+      <button id="clearBtn" class="bg-red-500 text-white px-4 py-2 rounded shadow">Clear</button>
+    </div>
+
+    <p id="status" class="mt-2 text-sm text-center"></p>
+  </div>
 
   <script>
-    let qrData = "";
-    const resultElement = document.getElementById('result');
-    const sendBtn = document.getElementById('sendBtn');
+    const categories = ["Workshop A", "Workshop B", "Lunch", "Exhibitor", "Hall", "One to One Meeting"];
+    let scannedData = {};
+    let currentTab = "Workshop A";
 
-    function onScanSuccess(decodedText, decodedResult) {
-      if (!qrData) {
-        qrData = decodedText;
-        resultElement.innerHTML = `<strong>QR Data:</strong> ${qrData}`;
-        sendBtn.style.display = 'inline-block';
+    const qrReader = new Html5Qrcode("qr-reader");
+    const cameraConfig = { fps: 30, qrbox: 300, videoConstraints: { facingMode: "environment" } };
 
-        // Stop scanning after successful scan
-        html5QrCode.stop().then(() => {
-          console.log("Camera stopped.");
-        });
-      }
-    }
+    categories.forEach(cat => scannedData[cat] = []);
 
-    const html5QrCode = new Html5Qrcode("qr-reader");
+    const updateScannedList = () => {
+      const list = document.getElementById("scanned-list");
+      list.innerHTML = "";
+      scannedData[currentTab].forEach((item, index) => {
+        const li = document.createElement("li");
+        li.textContent = `${index + 1}. ${item}`;
+        list.appendChild(li);
+      });
+    };
 
-    Html5Qrcode.getCameras().then(devices => {
-      if (devices && devices.length) {
-        const cameraId = devices[0].id;
-        html5QrCode.start(
-  cameraId,
-  {
-    fps: 15,
-    qrbox: 250,
-    aspectRatio: 1.333, // 4:3 camera
-    videoConstraints: {
-      facingMode: "environment",
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
-    }
-  },
-  onScanSuccess
-).catch(err => {
-          console.error("Failed to start scanning", err);
-        });
-      }
-    }).catch(err => {
-      console.error("Camera error:", err);
+    const switchTab = (tab) => {
+      currentTab = tab;
+      document.getElementById("current-category").textContent = tab;
+      updateScannedList();
+    };
+
+    const showStatus = (msg, color = "text-green-600") => {
+      const status = document.getElementById("status");
+      status.textContent = msg;
+      status.className = `mt-2 text-sm text-center ${color}`;
+      setTimeout(() => status.textContent = "", 4000);
+    };
+
+    const scanQR = () => {
+      qrReader.start(
+        { facingMode: "environment" },
+        cameraConfig,
+        (decodedText) => {
+          if (!scannedData[currentTab].includes(decodedText)) {
+            scannedData[currentTab].push(decodedText);
+            updateScannedList();
+            showStatus("✅ Scanned and saved!");
+          } else {
+            showStatus("⚠️ Already scanned!", "text-yellow-500");
+          }
+        },
+        (err) => {}
+      ).catch(err => console.error("Camera error:", err));
+    };
+
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("bg-blue-600", "text-white"));
+        btn.classList.add("bg-blue-600", "text-white");
+        switchTab(btn.dataset.tab);
+      });
     });
 
-    sendBtn.addEventListener('click', () => {
-      const url = "https://script.google.com/macros/s/AKfycbxl0xNZrHcteOZEMLOFNKIQ57HrzBPq1-hPe_0QN2eGGlYk24oKShx69dPVB52Dmnx8/exec"; // Replace this
+    document.getElementById("sendBtn").addEventListener("click", () => {
+      const payload = {
+        category: currentTab,
+        qrData: scannedData[currentTab]
+      };
+
+      const url = "YOUR_GOOGLE_SCRIPT_URL_HERE"; // Replace this with your Google Apps Script Web App URL
+
       fetch(url, {
         method: 'POST',
         mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ qrData: qrData })
-      })
-      .then(() => alert("Data sent to Google Sheet!"))
-      .catch(err => console.error("Send error:", err));
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(() => {
+        showStatus("✅ Data sent to Google Sheets!");
+      }).catch(() => {
+        showStatus("❌ Failed to send data.", "text-red-600");
+      });
     });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const data = scannedData[currentTab].map((item, index) => ({
+        No: index + 1,
+        Category: currentTab,
+        QRData: item
+      }));
+      const csv = Papa.unparse(data);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      saveAs(blob, `${currentTab.replace(/ /g, "_")}_QR_Scan.csv`);
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      if (confirm("Are you sure you want to clear all scanned data in this category?")) {
+        scannedData[currentTab] = [];
+        updateScannedList();
+        showStatus("🗑 Data cleared", "text-gray-600");
+      }
+    });
+
+    // Init
+    switchTab("Workshop A");
+    scanQR();
   </script>
 </body>
 </html>
