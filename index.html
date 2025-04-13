@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QR Code Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { text-align: center; font-family: sans-serif; padding: 2rem; }
+    #qr-reader { width: 300px; margin: auto; }
+    #result { margin-top: 1rem; font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+
+  <h1>QR Code Scanner</h1>
+  <div id="qr-reader"></div>
+  <div id="result"></div>
+  <button id="sendBtn" style="display:none; margin-top: 1rem;">Send to Google Sheet</button>
+
+  <script>
+    let qrData = "";
+    const resultElement = document.getElementById('result');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function onScanSuccess(decodedText, decodedResult) {
+      if (!qrData) {
+        qrData = decodedText;
+        resultElement.innerHTML = `<strong>QR Data:</strong> ${qrData}`;
+        sendBtn.style.display = 'inline-block';
+
+        // Stop scanning after successful scan
+        html5QrCode.stop().then(() => {
+          console.log("Camera stopped.");
+        });
+      }
+    }
+
+    const html5QrCode = new Html5Qrcode("qr-reader");
+
+    Html5Qrcode.getCameras().then(devices => {
+      if (devices && devices.length) {
+        const cameraId = devices[0].id;
+        html5QrCode.start(
+  cameraId,
+  {
+    fps: 15,
+    qrbox: 250,
+    aspectRatio: 1.333, // 4:3 camera
+    videoConstraints: {
+      facingMode: "environment",
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
+    }
+  },
+  onScanSuccess
+).catch(err => {
+          console.error("Failed to start scanning", err);
+        });
+      }
+    }).catch(err => {
+      console.error("Camera error:", err);
+    });
+
+    sendBtn.addEventListener('click', () => {
+      const url = "https://script.google.com/macros/s/AKfycbxl0xNZrHcteOZEMLOFNKIQ57HrzBPq1-hPe_0QN2eGGlYk24oKShx69dPVB52Dmnx8/exec"; // Replace this
+      fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ qrData: qrData })
+      })
+      .then(() => alert("Data sent to Google Sheet!"))
+      .catch(err => console.error("Send error:", err));
+    });
+  </script>
+</body>
+</html>
